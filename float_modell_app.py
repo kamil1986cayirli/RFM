@@ -11,7 +11,7 @@ import joblib # MODELİ YÜKLEMEK İÇİN YENİ KÜTÜPHANE
 st.set_page_config(layout="wide", page_title="Opet Pay 'Akıllı' Dashboard")
 
 st.title("Opet Pay 'Akıllı Strateji' Dashboardu 🚀")
-st.markdown("Bu dashboard, net kârlılığı analiz eder, **gerçek ML modeliyle** churn riskini tahmin eder ve müşteri arayüzünü simüle eder.")
+st.markdown("Bu dashboard, net kârlılığı analiz eder, churn riskini tahmin eder, RFM segmentasyonu yapar ve müşteri arayüzünü simüle eder.")
 
 # ---------------------------------------------------------------------
 # 1. ÇEKİRDEK HESAPLAMA MANTIĞI (Net Kâr)
@@ -46,10 +46,10 @@ def calculate_net_profitability(
     }
 
 # ---------------------------------------------------------------------
-# 2. GERÇEK ML MODELİNİ YÜKLEME
+# 2. GERÇEK ML MODELLERİNİ YÜKLEME
 # ---------------------------------------------------------------------
 
-@st.cache_resource # Modeli hafızada tutmak için _resource kullanılır
+@st.cache_resource # Modelleri hafızada tutmak için _resource kullanılır
 def load_all_models():
     """ Tüm .pkl dosyalarını yükler. """
     try:
@@ -205,41 +205,14 @@ with tab3:
         df_loaded = st.session_state['df_loaded'].copy()
         
         # 1. RFM Modeli için gerekli kolonlar var mı diye kontrol et
-        rfm_cols = models['rfm_columns']
-        missing_rfm_cols = [col for col in rfm_cols if col not in df_loaded.columns]
+        # 'RFM_Segment_Adi' kolonu zaten Tab 4'te eklendi mi diye bak
+        if 'RFM_Segment_Adi' not in df_loaded.columns:
+            st.warning("RFM Segmentasyonu henüz hesaplanmamış. Lütfen 'Veri Yükle & Churn Analizi 📂' sekmesine geri dönüp veriyi yeniden yükleyin.")
         
-        if missing_rfm_cols:
-            st.error(f"HATA: Yüklediğiniz dosyada RFM modeli için gerekli kolonlar eksik: **{', '.join(missing_rfm_cols)}**.")
-            st.warning("Lütfen 8 kolonlu 'Akıllı Şablonu' indirin ve tam formatta bir dosya yükleyin.")
         else:
             try:
-                # 2. Veriyi Hazırla ve Ölçekle
-                df_for_rfm = df_loaded[rfm_cols].fillna(0)
-                X_rfm_scaled = models['rfm_scaler'].transform(df_for_rfm)
-                
-                # 3. K-Means Modeli ile Kümele
-                df_loaded['RFM_Kume'] = models['rfm_model'].predict(X_rfm_scaled)
-                
-                # 4. Kümeleri Analiz Et
                 st.subheader("Dinamik RFM Segment Özeti")
                 st.markdown("Yapay Zeka, müşterilerinizi R (Yenilik), F (Sıklık) ve M (Parasal Değer) benzeri metriklere göre 4 doğal gruba ayırdı:")
-                
-                segment_analysis = df_loaded.groupby('RFM_Kume')[
-                    ['Aylık NET Kâr (CB Hariç)', 'ortalama_aylik_yukleme_tl', 'ortalama_bakiye_tutma_suresi_gun', 'aylik_yukleme_sikligi', 'son_islem_uzerinden_gecen_gun']
-                ].mean().reset_index()
-                
-                segment_analysis = segment_analysis.sort_values(by='Aylık NET Kâr (CB Hariç)', ascending=False)
-                
-                # Kümeleri daha okunaklı etiketlerle (örn: Şampiyon) yeniden adlandır
-                cluster_labels = {
-                    segment_analysis.iloc[0]['RFM_Kume']: "🥇 Şampiyonlar (Yüksek Kâr, Yüksek Aktivite)",
-                    segment_analysis.iloc[1]['RFM_Kume']: "💖 Sadık Müşteriler (Orta Kâr, Uzun Süre)",
-                    segment_analysis.iloc[2]['RFM_Kume']: "⏳ Risk Altındakiler (Düşük Kâr, Nadir Gelenler)",
-                    segment_analysis.iloc[3]['RFM_Kume']: "💔 Zarar Edenler (Net Zarar, Kısa Süre)"
-                }
-                df_loaded['RFM_Segment_Adi'] = df_loaded['RFM_Kume'].map(cluster_labels)
-                
-                st.success("RFM Segmentasyonu tamamlandı!")
                 
                 # 5. Kümeleri Görselleştir
                 display_analysis = df_loaded.groupby('RFM_Segment_Adi')['Aylık NET Kâr (CB Hariç)'].agg(['count', 'mean', 'sum']).reset_index()
@@ -261,19 +234,16 @@ with tab3:
                     except Exception as e:
                         st.error(f"RFM Asistanı yorum yaparken bir hata oluştu: {e}")
 
-                # Analiz edilen veriyi hafızaya geri kaydet (yeni RFM segment adıyla)
-                st.session_state['df_loaded'] = df_loaded
-            
             except Exception as e:
                 st.error(f"RFM analizi sırasında bir hata oluştu: {e}")
 
 
 # ----------------------------------
-# TAB 4: Veri Yükle & Churn Analizi (TÜM HATA KONTROLLERİ EKLENDİ)
+# TAB 4: Veri Yükle & Churn Analizi (TÜM MODELLER BURADA ÇALIŞIR)
 # ----------------------------------
 with tab4:
     st.header("Veri Yükle & Churn Analizi 📂")
-    st.info("Kendi müşteri verinizi yükleyerek *net kârlılık* ve *gerçek ML modeliyle* churn (terk) riski analizi yapın. Yüklediğiniz veri, 'RFM Segmentasyonu' ve 'Müşteri Simülasyonu' sekmelerini de aktif hale getirecektir.")
+    st.info("Kendi müşteri verinizi yükleyerek *net kârlılık*, *churn (terk) riski* ve *RFM segmentasyonu* analizi yapın. Yüklediğiniz veri, diğer iki 'akıllı' sekmeyi de besleyecektir.")
 
     st.subheader("1. Adım: Şablonu İndirin")
     sample_data = {
@@ -313,26 +283,29 @@ with tab4:
             financial_cols = ['ortalama_aylik_yukleme_tl', 'ortalama_bakiye_tutma_suresi_gun']
             missing_financial_cols = [col for col in financial_cols if col not in df.columns]
             
-            ml_cols = models['churn_columns']
-            missing_ml_cols = [col for col in ml_cols if col not in df.columns]
+            churn_ml_cols = models['churn_columns']
+            missing_churn_ml_cols = [col for col in churn_ml_cols if col not in df.columns]
+            
+            rfm_ml_cols = models['rfm_columns']
+            missing_rfm_ml_cols = [col for col in rfm_ml_cols if col not in df.columns]
 
-            ml_ready = not bool(missing_ml_cols) 
+            churn_ml_ready = not bool(missing_churn_ml_cols) 
+            rfm_ml_ready = not bool(missing_rfm_ml_cols)
             financial_ready = not bool(missing_financial_cols) 
             
             if not financial_ready:
                 st.error(f"HATA: Yüklediğiniz dosyada temel analiz için zorunlu kolonlar eksik: **{', '.join(missing_financial_cols)}**.")
-                st.warning("Lütfen 'Akıllı Şablonu' indirin ve dosyanızın bu kolonları içerdiğinden emin olun.")
                 if 'df_loaded' in st.session_state: del st.session_state['df_loaded']
             
             else:
-                # --- Finansal Analiz (Net Kâr) ---
+                # --- 1. Finansal Analiz (Net Kâr) ---
                 g_faiz_orani = faiz_orani; g_islem_maliyeti_yuzde = islem_maliyeti_yuzde; g_op_maliyet_tl = op_maliyet_tl
                 def calculate_customer_net_profit(row):
                     res = calculate_net_profitability(1, row['ortalama_aylik_yukleme_tl'], row['ortalama_bakiye_tutma_suresi_gun'], g_faiz_orani, 0, g_islem_maliyeti_yuzde, g_op_maliyet_tl)
                     return res['toplam_aylik_brut_gelir'], res['toplam_net_kar'], res['toplam_islem_maliyeti']
                 df[['Aylık Brüt Gelir (Faiz)', 'Aylık NET Kâr (CB Hariç)', 'Aylık İşlem Maliyeti']] = df.apply(calculate_customer_net_profit, axis=1, result_type='expand')
                 
-                # --- Finansal Segmentasyon (Kural Bazlı) ---
+                # --- 2. Finansal Segmentasyon (Kural Bazlı) ---
                 df.loc[df['Aylık NET Kâr (CB Hariç)'] <= 0, 'Finansal_Segment'] = 'Kayıp (Zarar)'
                 karlilar = df[df['Aylık NET Kâr (CB Hariç)'] > 0]
                 if not karlilar.empty:
@@ -341,17 +314,13 @@ with tab4:
                         df.update(karlilar)
                     except ValueError: karlilar['Finansal_Segment'] = 'Altın'; df.update(karlilar)
 
-                # --- ML Modeli ile Churn Tahmini (Sadece Mümkünse) ---
-                if ml_ready:
-                    df_for_model = df[ml_cols].fillna(0)
-                    
-                    # --- DÜZELTME (IndexError Kontrolü) ---
+                # --- 3. ML Modeli ile Churn Tahmini (Sadece Mümkünse) ---
+                if churn_ml_ready:
+                    df_for_churn_model = df[churn_ml_cols].fillna(0)
                     if hasattr(models['churn_model'], 'classes_') and len(models['churn_model'].classes_) == 2:
-                        churn_probabilities = models['churn_model'].predict_proba(df_for_model)[:, 1]
+                        churn_probabilities = models['churn_model'].predict_proba(df_for_churn_model)[:, 1]
                     else:
-                        st.warning("Churn Modeli, eğitim verisinde hiç 'terk eden' müşteri bulamadı. Tüm churn riskleri 0 olarak ayarlanıyor.")
-                        churn_probabilities = np.zeros(len(df_for_model)) # Herkes için 0% risk
-
+                        churn_probabilities = np.zeros(len(df_for_churn_model))
                     df['Churn Riski (%)'] = (churn_probabilities * 100).round(0)
                     
                     def set_risk_level(row):
@@ -364,43 +333,87 @@ with tab4:
                             seviye = "KRİTİK"
                         return seviye
                     df['Risk Seviyesi'] = df.apply(set_risk_level, axis=1)
-                    st.success(f"{len(df)} adet müşteri verisi başarıyla işlendi ve GERÇEK ML MODELİ ile churn tahmini tamamlandı!")
-                
                 else:
-                    st.warning(f"ML Modeli için gerekli kolonlar bulunamadı: {', '.join(missing_ml_cols)}. Churn tahmini (Risk Seviyesi) atlanıyor.")
+                    st.warning(f"ML Churn Modeli için gerekli kolonlar bulunamadı: {', '.join(missing_churn_ml_cols)}. Churn tahmini atlanıyor.")
                     df['Churn Riski (%)'] = 0; df['Risk Seviyesi'] = 'Veri Eksik'
-                    st.success(f"{len(df)} adet müşteri verisi için Net Kâr analizi tamamlandı (ML tahmini atlandı).")
+                
+                # --- 4. ML Modeli ile RFM Segmentasyonu (Sadece Mümkünse) ---
+                if rfm_ml_ready:
+                    df_for_rfm = df[rfm_ml_cols].fillna(0)
+                    X_rfm_scaled = models['rfm_scaler'].transform(df_for_rfm)
+                    df['RFM_Kume'] = models['rfm_model'].predict(X_rfm_scaled)
+                    
+                    # Kümeleri analiz et (Ortalamaları bulmak için)
+                    segment_analysis = df.groupby('RFM_Kume')['Aylık NET Kâr (CB Hariç)'].mean().reset_index()
+                    segment_analysis = segment_analysis.sort_values(by='Aylık NET Kâr (CB Hariç)', ascending=False)
+                    
+                    # Kümeleri Kârlılığa göre etiketle
+                    cluster_labels = {
+                        segment_analysis.iloc[0]['RFM_Kume']: "🥇 Şampiyonlar",
+                        segment_analysis.iloc[1]['RFM_Kume']: "💖 Sadık Müşteriler",
+                        segment_analysis.iloc[2]['RFM_Kume']: "⏳ Risk Altındakiler",
+                        segment_analysis.iloc[3]['RFM_Kume']: "💔 Zarar Edenler"
+                    }
+                    df['RFM_Segment_Adi'] = df['RFM_Kume'].map(cluster_labels)
+                else:
+                    st.warning(f"ML RFM Modeli için gerekli kolonlar bulunamadı: {', '.join(missing_rfm_ml_cols)}. RFM segmentasyonu atlanıyor.")
+                    df['RFM_Segment_Adi'] = 'Veri Eksik'
 
-                # --- Veriyi Hafızaya Kaydet ---
+                # --- 5. Veriyi Hafızaya Kaydet ---
                 st.session_state['df_loaded'] = df
-                st.info("Veri hafızaya alındı. Şimdi 'RFM Segmentasyonu' ve 'Müşteri Simülasyonu' sekmelerini inceleyebilirsiniz.")
+                st.success(f"{len(df)} adet müşteri verisi başarıyla işlendi ve tüm analizler tamamlandı.")
+                st.info("Şimdi 'RFM Segmentasyonu' ve 'Müşteri Simülasyonu' sekmelerini inceleyebilirsiniz.")
                 
                 # --- Raporlama ---
                 st.header("🚨 Acil Eylem Raporu (Churn Riski)");
-                if ml_ready:
+                if churn_ml_ready:
                     churn_summary = df.groupby('Risk Seviyesi')['Aylık NET Kâr (CB Hariç)'].agg(['count', 'sum']).rename(columns={'count': 'Müşteri Sayısı', 'sum': 'Risk Altındaki NET Kâr (Aylık)'})
                     st.dataframe(churn_summary.style.format({'Müşteri Sayısı': '{:,.0f}', 'Risk Altındaki NET Kâr (Aylık)': '{:,.2f} TL'}))
                 else:
                     st.info("ML tahmini yapılmadığı için Churn Raporu oluşturulamadı. Lütfen 8 kolonlu 'Akıllı Şablonu' yükleyin.")
                 
+                # --- YENİ DETAYLI ASİSTAN (TALEP 3) ---
                 st.header("🤖 Akıllı Kampanya Asistanı (Veriye Dayalı)"); 
-                if ml_ready:
+                if churn_ml_ready:
                     df_kritik = df[df['Risk Seviyesi'] == 'KRİTİK'].sort_values(by='Aylık NET Kâr (CB Hariç)', ascending=False)
                     if not df_kritik.empty:
                         st.error(f"**ACİL EYLEM GEREKİYOR!** {len(df_kritik)} adet YÜKSEK DEĞERLİ ve 'KRİTİK' riskli müşteri tespit edildi.")
+                        with st.container(border=True):
+                            st.markdown("##### En Riskli Müşteriler ve Aksiyon Planı:")
+                            for index, musteri in df_kritik.head(3).iterrows(): 
+                                musteri_adi = musteri.get('ad_soyad', musteri['musteri_id'])
+                                kayip_kar = musteri['Aylık NET Kâr (CB Hariç)']
+                                bonus = max(50, kayip_kar * 0.5) # Net kârın yarısı, min 50TL
+                                
+                                st.warning(f"**Müşteri: {musteri_adi} (Segment: {musteri['Finansal_Segment']})**")
+                                st.markdown(f"  - **Model Tahmini:** %{musteri['Churn Riski (%)']:.0f} Terk Etme Riski.")
+                                st.markdown(f"  - **Kaybedilmekte Olan Kâr:** Aylık **{musteri['Aylık NET Kâr (CB Hariç)']:,.2f} TL**.")
+                                st.markdown(f"  - **ÖNERİLEN AKSİYON:** Bu müşteriyi kaybetme maliyeti, ona vereceğiniz bonustan yüksektir. **Derhal** kişiye özel bir 'Geri Kazanım' kampanyası (örn: **{bonus:,.0f} TL**'lik 'Sizi Özledik' bonusu) tanımlayın.")
                     else: st.success("Harika! 'KRİTİK' seviyede risk taşıyan yüksek değerli müşteriniz bulunmuyor.")
                 else:
                     st.info("ML tahmini yapılmadığı için Akıllı Asistan önerileri sınırlıdır.")
 
-                st.header("📝 Detaylı Müşteri Listesi (Net Kâr, Segment ve Risk)")
-                st.dataframe(df.sort_values(by='Churn Riski (%)', ascending=False), use_container_width=True)
+                # --- YENİ DETAYLI TABLO (TALEP 1) ---
+                st.header("📝 Detaylı Müşteri Listesi (Tüm Segmentler ve Risk)")
+                # Gösterilecek kolonları seç
+                cols_to_show = [
+                    'ad_soyad', 
+                    'Aylık NET Kâr (CB Hariç)', 
+                    'Finansal_Segment', 
+                    'RFM_Segment_Adi', # RFM Segmenti eklendi
+                    'Risk Seviyesi', 
+                    'Churn Riski (%)'
+                ]
+                # Dosyada olmayan kolonları listeden çıkar (hata vermesin diye)
+                final_cols = [col for col in cols_to_show if col in df.columns]
+                st.dataframe(df.sort_values(by='Churn Riski (%)', ascending=False)[final_cols], use_container_width=True)
         
         except Exception as e:
             st.error(f"Dosya okunurken veya ML modeli çalışırken bir hata oluştu: {e}")
             if 'df_loaded' in st.session_state: del st.session_state['df_loaded']
 
 # ----------------------------------
-# TAB 5: Müşteri Simülasyonu 📱 (ATTRIBUTEERROR İÇİN DÜZELTİLDİ)
+# TAB 5: Müşteri Simülasyonu 📱 (TÜM GÜNCELLEMELER EKLENDİ - TALEP 2)
 # ----------------------------------
 with tab5:
     st.header("Müşteri Arayüzü Simülasyonu 📱")
@@ -431,7 +444,7 @@ with tab5:
             if customer_data is not None:
                 # Hem Finansal hem de RFM segmentini al
                 financial_segment = customer_data.get('Finansal_Segment', 'Kayıp (Zarar)')
-                rfm_segment = customer_data.get('RFM_Segment_Adi', 'Bilinmiyor') # Bu, Tab 3'te hesaplandı
+                rfm_segment = customer_data.get('RFM_Segment_Adi', 'Veri Eksik') # RFM verisini çek
                 brut_gelir = customer_data.get('Aylık Brüt Gelir (Faiz)', 0)
                 
                 segment_cb_map = {'Platin': 0.75, 'Altın': 0.60, 'Gümüş': 0.40, 'Bronz': 0.20, 'Kayıp (Zarar)': 0.0}
@@ -447,6 +460,7 @@ with tab5:
                         elif financial_segment == "Altın": st.markdown(f"<h2 style='color: #FFD700;'>Altın 🥇</h2>", unsafe_allow_html=True)
                         else: st.markdown(f"<h2>{financial_segment}</h2>", unsafe_allow_html=True)
                         
+                        # --- YENİ EKLENEN BAŞLIK (TALEP 2) ---
                         st.caption(f"Yapay Zeka (RFM) Davranış Kümeniz: **{rfm_segment}**")
                         st.divider()
 
