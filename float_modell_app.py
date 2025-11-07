@@ -189,7 +189,7 @@ with tab2:
         else: st.error("**Başa Baş Noktası BULUNAMADI**\nMevcut maliyet yapısıyla, müşteri parasını 30 gün tutsa bile bu model net kâr üretemiyor.")
 
 # ----------------------------------
-# TAB 3: Yapay Zeka RFM Segmentasyonu (GÜNCELLENDİ)
+# TAB 3: Yapay Zeka RFM Segmentasyonu
 # ----------------------------------
 with tab3:
     st.header("Yapay Zeka RFM Segmentasyonu 🧠")
@@ -400,7 +400,7 @@ with tab4:
             if 'df_loaded' in st.session_state: del st.session_state['df_loaded']
 
 # ----------------------------------
-# TAB 5: Müşteri Simülasyonu 📱 (TÜM HATALAR İÇİN DÜZELTİLDİ)
+# TAB 5: Müşteri Simülasyonu 📱 (ATTRIBUTEERROR İÇİN DÜZELTİLDİ)
 # ----------------------------------
 with tab5:
     st.header("Müşteri Arayüzü Simülasyonu 📱")
